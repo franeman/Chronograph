@@ -1,77 +1,250 @@
 /*
  * This program will calculate the velocity of a bullet using 2 IR beams as triggers.
- * It will then trigger a camera when the bullet will impact the target
+ * It will then trigger a camera when the projectile will impact the target
  * The program assumes constance zero acceleration and neglects air resistance
  */
 
+/*
+LCD Circuit:
+LCD RS pin to digital pin 12
+LCD Enable pin to digital pin 11
+LCD D4 pin to digital pin 5
+LCD D5 pin to digital pin 4
+LCD D6 pin to digital pin 3
+LCD D7 pin to digital pin 2
+Additionally, wire a 10k pot to +5V and GND, with it's wiper (output) to LCD screens VO pin (pin3). 
+A 220 ohm resistor is used to power the backlight of the display, usually on pin 15 and 16 of the LCD connector
+*/
+#include <LiquidCrystal.h>
+#include <IRremote.h>
+
 // Pin numbers
 // Inputs
-#define BUTTON 2 // #define works as shown, there is no = or ; in it.
+#define REMOTE 8 // #define works as shown, there is no = or ; in it.
 #define TRIG_1 A0
 #define TRIG_2 A1
 // Outputs
-#define LED 13
 #define CAM 10
 
 
 // Constants
-#define TRIG_HIGH 0
+#define DIST_TRIGGERS 0.25f // Distance between trig1 and trig2 in ft, determined by 3D print
+
+// Global Variables
+bool fire = false; // Determines if the chronograph is in shooting or options mode
+short menu = 0; // Used for determining which menu page to show
+short trigHigh = 1024; // Defualt value is high to prevent missfires
+short trim = 0; // used as an offset 
+
+float distTarget = 0;   // Distance between end of muzzle to target in ft
+float distTrig1 = 0;    // Distance between muzzle and trig1 in ft
+
+float velocity = 0;     // Velocity of the bullet 
+
+unsigned long timeBetTrig = 0; // Time between triggers in microseconds
+unsigned long timeToTarget = 0; // Time from trig2 till the projectile hits the target
+
+#define AVE_SIZE 10
+float aveArray[AVE_SIZE];
+float average = 0.0f;
+short shotsFired = 0;
+short avePos = 0;
+
+// IR remote
+IRrecv irrecv(REMOTE);
+decode_results results;
+short remIn = -1;
+
+// LCD
+#define rs 12
+#define en 11
+#define d4 5
+#define d5 4
+#define d6 3
+#define d7 2
+
+LiquidCrystal lcd(rs,en,d4,d5,d6,d7); // create LiquidCrystal variable using specified pins
+
+// Character arrays for storing LCD input
+#define SIZE 4
+char lcdIn0[SIZE]; // Dist to target
+char lcdIn1[SIZE]; // Dist trig 1
+char lcdIn2[SIZE]; // trigger when < val
+char lcdIn3[SIZE]; // trim val for adjusting the time of the shot
+
+
+short row = 0; // used to select the row of LCD display
+short col = 12; // used to select the column of LCD display
 
 void setup() {
   // Inputs
-  pinMode(BUTTON,INPUT);
+  pinMode(REMOTE,INPUT);
   pinMode(TRIG_1,INPUT);
   pinMode(TRIG_2,INPUT);
-
+  
   // Outputs
-  pinMode(LED,OUTPUT);
   pinMode(CAM,OUTPUT);
+  
+  // IR remote
+  irrecv.enableIRIn(); // Start the receiver
+  
+  // LCD
+  lcd.begin(16,2); // columns,rows
+  
+  lcd.home();
+  lcd.print("Chronograph");
+  lcd.setCursor(0,1);
+  lcd.print("By Ethan Grey");
+  delay(5000);
+  
+  empty(lcdIn0,SIZE); // Fill input arrays with spaces
+  empty(lcdIn1,SIZE);
+  empty(lcdIn2,SIZE);
+  empty(lcdIn3,SIZE);
+  lcdIn3[0] = '0'; // Set initial value to 0
+  
+  Serial.begin(9600); // Open serial monitor (For debugging)
 }
 
 void loop() {
-
-  float distTriggers = 0; // Distance between trig1 and trig2 in ft
-  float distTarget = 0;   // Distance between end of muzzle to target in ft
-  float distTrig1 = 0;    // Distance between muzzle and trig1 in ft
-
-  float velocity = 0;     // Velocity of the bullet 
-
-  unsigned long timeBetTrig = 0; // Time between triggers in microseconds
-  unsigned long timeToTarget = 0; // Time from trig2 till the bullet hits the target
-
-  bool armed = false;
-  
-  while(armed == false)
+  menu = 0;
+  while(!fire)  // Enter options while not ready to fire
   {
-    digitalWrite(LED,1); // keep led on while not armed
-    if (digitalRead(BUTTON)== 1)
-    {
-      armed = true;
-    }
+    while (menu == 0 && !fire) // First page of menu, show sensor vals
+      {
+        short trig1Val = analogRead(TRIG_1); // Get sensor vals
+        short trig2Val = analogRead(TRIG_2);
+        
+        lcd.clear();
+        lcd.noCursor(); // Hide cursor
+        lcd.home();
+        lcd.print("Trig 1: ");
+        lcd.print(trig1Val); 
+        lcd.setCursor(0,1);
+        lcd.print("Trig 2: ");
+        lcd.print(trig2Val);
+        delay(500); // wait 0.5 sec
+        if (readRemote() == 12) // If remote reads next, go to the next page
+          {
+            menu++;
+          } 
+      }
+    // reset input cursor pos
+    row = 0;
+    col = 12;
+    
+    while (menu == 1 && !fire) // Second page of menu, set distTarget and distTrig1
+      {
+        lcd.clear();
+        lcd.cursor(); // Show cursor
+        lcd.home();
+        String tmpStr = charToString(lcdIn0,SIZE);
+        lcd.print("Dist Target:");
+        lcd.print(tmpStr);
+        lcd.setCursor(0,1);
+        tmpStr = charToString(lcdIn1,SIZE);
+        lcd.print("Dist Trig 1:");
+        lcd.print(tmpStr);
+        lcd.setCursor(col,row); // Set cursor to user input
+        getLCDInput(); // Handles user input to LCD)
+        delay(500);
+      }
+    // reset input cursor pos
+    row = 0;
+    col = 12;
+    
+    while (menu == 2 && !fire) // Third page of menu, set trigger val
+      {
+        lcd.clear();
+        lcd.cursor(); // Show cursor
+        lcd.home();
+        String tmpStr = charToString(lcdIn2,SIZE);
+        lcd.print("Trigger Val:");
+        lcd.print(tmpStr);
+        lcd.setCursor(0,1);
+        lcd.print("Trim value :");
+        tmpStr = charToString(lcdIn3,SIZE);
+        lcd.print(tmpStr);
+        lcd.setCursor(col,row); // Set cursor to user input
+        getLCDInput(); // Handles user input to LCD)
+        delay(500);
+      }
+      
+    while (menu == 3 && !fire)
+      {
+        if (shotsFired < AVE_SIZE) // If we havn't filled the average array yet
+          {
+            float sum = 0;
+            for (short c = 0; c < shotsFired; c++) // Add all the shots taken so far
+              {
+                sum = sum + aveArray[c];
+              }
+            average = (sum / shotsFired); // average them
+          }
+        else
+          {
+            float sum = 0;
+            for (short c = 0; c < AVE_SIZE; c++) // Add all the shots saved
+              {
+                sum = sum + aveArray[c];
+              }
+            average = (sum / AVE_SIZE); // average them
+          }
+          
+        lcd.clear();
+        lcd.noCursor();
+        lcd.home();
+        lcd.print("Shots Fired: " + shotsFired); // Show how many shots have been fired
+        lcd.setCursor(0,1);
+        lcd.print("Average Vel:"); // Show the average velocity
+        lcd.print(average);
+        
+        if(readRemote() == 11) // Prev
+          {
+            menu--;
+          }
+        delay(500);
+      }
   }
-
-  digitalWrite(LED,0);  // Ready to fire.
-
-  while(analogRead(TRIG_1) > TRIG_HIGH) // Wait for bullet to pass by trig1
+  // Fire mode
+  timeBetTrig = 0;
+  
+  while(fire && analogRead(TRIG_1) > trigHigh) // Wait for projectile to pass by trig1
     {
-      timeBetTrig = 0;
+      if(readRemote() == 10) // If EQ (menu button) was pressed, go to options
+        {
+          fire = false;
+        }  
     }
+  
+  if (fire)
+  {
   // Trig 1 was triggered
-
-  while(analogRead(TRIG_2) > TRIG_HIGH) // Wait for bullet to pass trig2
+  while(analogRead(TRIG_2) > trigHigh) // Wait for projectile to pass trig2
     {
       delayMicroseconds(1); // Wait 1 microsecond
       timeBetTrig++; // 1 microsecond passed
     }
-  // Trig 2 was triggered
+    // Trig 2 was triggered
 
-  velocity = calcVelocity(distTriggers,timeBetTrig); // Calculate velocity of bullet
+    velocity = calcVelocity(DIST_TRIGGERS,timeBetTrig); // Calculate velocity of projectile
 
-  timeToTarget = calcTTT(velocity, distTriggers, distTrig1, distTarget); // Calculate the time left till the bullet hits the target in microseconds
+    timeToTarget = calcTTT(velocity, DIST_TRIGGERS, distTrig1, distTarget); // Calculate the time left till the projectile hits the target in microseconds
   
-  delayMicroseconds(timeToTarget); // Wait till the bullet hits the target
+    delayMicroseconds(timeToTarget); // Wait till the projectile hits the target
 
-  shoot(); // Take the picture
+    shoot(); // Take the picture
+    
+    shotsFired++;
+    
+    if (avePos == AVE_SIZE - 1) // Check if we met the size limit for the average array
+      {
+        avePos = 0;  // If we did, set the position to the begging
+      }
+    aveArray[avePos] = velocity; // store the last shot's velocity for later use
+    
+    avePos++;
+  }
 }
 
 float calcVelocity(float distance,unsigned long timeMicro) // takes a distance in feet and the time in microseconds to calculate the velocity in ft/sec
@@ -81,10 +254,10 @@ float calcVelocity(float distance,unsigned long timeMicro) // takes a distance i
     return velocity;
   }
 
-unsigned long calcTTT(float velocity, float distTriggers, float distTrig1, float distTarget) // Takes velocity in ft/sec, distance between triggers in ft, and distance between the muzzle to the target in ft,
+unsigned long calcTTT(float velocity, float dist_triggers, float distTrig1, float distTarget) // Takes velocity in ft/sec, distance between triggers in ft, and distance between the muzzle to the target in ft,
                                                                            // and calculates the time left till impact in microseconds
   {
-    float distLeft = distTarget - (distTriggers + distTrig1);
+    float distLeft = distTarget - (dist_triggers + distTrig1);
     float timeSec =  distLeft / velocity;
     unsigned long timeToTarget = (unsigned long)timeSec * (unsigned long)pow(10,6);
     return timeToTarget;
@@ -95,4 +268,781 @@ void shoot()
     delay(50);
     digitalWrite(CAM, LOW);
   }
+  
+short readRemote()
+  {
+    short input = -1; // -1 indicates a value we wern't looking for
+    
+    if (irrecv.decode(&results)) // if we recive an IR signal
+    {
+      Serial.println(results.value, HEX);
+     switch (results.value) // Check what button was pressed
+     {
+       case 0xFF6897: // 0
+       input = 0;
+         break;
+       case 0xFF30CF: // 1
+       input = 1;
+         break;
+       case 0xFF18E7: // 2
+       input = 2;
+         break;
+       case 0xFF7A85: // 3
+       input = 3;
+         break;
+       case 0xFF10EF: // 4
+       input = 4;
+         break;
+       case 0xFF38C7: // 5
+       input = 5;
+         break;
+       case 0xFF5AA5: // 6
+       input = 6;
+         break;
+       case 0xFF42BD: // 7
+       input = 7;
+         break;
+       case 0xFF4AB5: // 8
+       input = 8;
+         break;
+       case 0xFF52AD: // 9
+       input = 9;
+         break;
+       case 0xFF906F: // EQ
+       input = 10;
+         break;
+       case 0xFF22DD: // Prev
+       input = 11;
+         break;
+       case 0xFF02FD: // Next
+       input = 12;
+         break;
+       case 0xFF629D: // CH
+       input = 13;
+         break;
+       case 0xFFE01F: // -
+       input = 14;
+         break;
+       case 0xFFA857: // +
+       input = 15;
+         break;
+       case 0xFF9867: // 100+
+       input = 16;
+         break;
+       case 0xFFA25D: // CH-
+       input = 17;
+         break;
+       case 0xFFE21D: // CH+
+       input = 18;
+         break;
+       case 0xFFC23D: // Play/Pause
+       input = 19;
+         break;
+     }
+     
+     irrecv.resume(); // Receive the next value
+    }
+     return input; // Return the button that was pressed
+  }
+  
+void getLCDInput()
+  {
+    short val = readRemote();
+    Serial.println("val = " + val);
+    switch (val)
+          {
+            case 0:
+              if (menu == 1)
+                {
+                  switch (row)
+                    {
+                      case 0:
+                        lcdIn0[col - 12] = '0';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                      case 1:
+                        lcdIn1[col - 12] = '0';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                    }
+                }
+                  else
+                    switch (row)
+                    {
+                      case 0:
+                        lcdIn2[col - 12] = '0';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                      case 1:
+                        lcdIn3[col - 12] = '0';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                    }
+                
+              break;
+            case 1:
+              if (menu == 1)
+                {
+                  switch (row)
+                    {
+                      case 0:
+                        lcdIn0[col - 12] = '1';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                      case 1:
+                        lcdIn1[col - 12] = '1';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                    }
+                }
+              else
+                {
+                  switch (row)
+                    {
+                      case 0:
+                        lcdIn2[col - 12] = '1';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                      case 1:
+                        lcdIn3[col - 12] = '1';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                    }
+                }
+              break;
+            case 2:
+              if (menu == 1)
+                {                
+                  switch (row)
+                    {
+                      case 0:
+                        lcdIn0[col - 12] = '2';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                      case 1:
+                        lcdIn1[col - 12] = '2';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                    }
+                }
+              else
+                {
+                  switch (row)
+                    {
+                      case 0:
+                        lcdIn2[col - 12] = '2';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                      case 1:
+                        lcdIn3[col - 12] = '2';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                    }
+                }
+              break;
+            case 3:
+              if (menu == 1)
+                {
+                  switch (row)
+                    {
+                      case 0:
+                        lcdIn0[col - 12] = '3';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                      case 1:
+                        lcdIn1[col - 12] = '3';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                    }
+                }
+              else
+                {
+                  switch (row)
+                    {
+                      case 0:
+                        lcdIn2[col - 12] = '3';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                      case 1:
+                        lcdIn3[col - 12] = '3';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                    }
+                }
+              break;
+            case 4:
+              if (menu == 1)
+              {
+                switch (row)
+                  {
+                    case 0:
+                      lcdIn0[col - 12] = '4';
+                      if (col < 15)
+                        {
+                          col++;
+                        }
+                      break;
+                    case 1:
+                      lcdIn1[col - 12] = '4';
+                      if (col < 15)
+                        {
+                          col++;
+                        }
+                      break;
+                  }
+              }
+            else
+              {
+                switch (row)
+                    {
+                      case 0:
+                        lcdIn2[col - 12] = '4';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                      case 1:
+                        lcdIn3[col - 12] = '4';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                    }
+              }
+              break;
+            case 5:
+              if (menu == 1)
+                {
+                  switch (row)
+                    {
+                      case 0:
+                        lcdIn0[col - 12] = '5';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                      case 1:
+                        lcdIn1[col - 12] = '5';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                    }
+                }
+              else
+                {
+                  switch (row)
+                    {
+                      case 0:
+                        lcdIn2[col - 12] = '5';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                      case 1:
+                        lcdIn3[col - 12] = '5';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                    }
+                }
+              break;
+            case 6:
+              if (menu == 1)
+                {
+                  switch (row)
+                    {
+                      case 0:
+                        lcdIn0[col - 12] = '6';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                      case 1:
+                        lcdIn1[col - 12] = '6';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                    }
+                }
+              else
+                {
+                  switch (row)
+                    {
+                      case 0:
+                        lcdIn2[col - 12] = '6';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                      case 1:
+                        lcdIn3[col - 12] = '6';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                    }
+                }
+              break;
+            case 7:
+              if (menu == 1)
+                {
+                  switch (row)
+                    {
+                      case 0:
+                        lcdIn0[col - 12] = '7';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                      case 1:
+                        lcdIn1[col - 12] = '7';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                    }
+                }
+              else
+                {
+                  switch (row)
+                    {
+                      case 0:
+                        lcdIn2[col - 12] = '7';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                      case 1:
+                        lcdIn3[col - 12] = '7';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                    }
+                }
+              break;
+            case 8:
+              if (menu == 1)
+                {
+                  switch (row)
+                    {
+                      case 0:
+                        lcdIn0[col - 12] = '8';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                      case 1:
+                        lcdIn1[col - 12] = '8';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                    }
+                }
+              else
+                {
+                  switch (row)
+                    {
+                      case 0:
+                        lcdIn2[col - 12] = '8';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                      case 1:
+                        lcdIn3[col - 12] = '8';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                    }
+                }
+              break;
+            case 9:
+              if (menu == 1)
+                {
+                  switch (row)
+                    {
+                      case 0:
+                        lcdIn0[col - 12] = '9';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                      case 1:
+                        lcdIn1[col - 12] = '9';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                    }
+                }
+              else
+                {
+                  switch (row)
+                    {
+                      case 0:
+                        lcdIn2[col - 12] = '9';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                      case 1:
+                        lcdIn3[col - 12] = '9';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                    }
+                }
+              break;
+            case 11: // Prev
+              menu--;
+              break;
+            case 12: // Next
+              menu++; 
+              break;
+            case 13: // CH
+              if (menu == 1)
+                {
+                  switch (row)
+                    {
+                      case 0:
+                        clearChar(lcdIn0, col - 12, SIZE);
+                        break;
+                      case 1:
+                        clearChar(lcdIn1, col - 12, SIZE);
+                        break;
+                    }
+                }
+              else
+                {
+                  switch (row)
+                    {
+                      case 0:
+                        clearChar(lcdIn2, col - 12, SIZE);
+                        break;
+                      case 1:
+                        clearChar(lcdIn3, col - 12, SIZE);
+                        break;
+                    }
+                }
+              break;
+            case 14: // - (move cursor left)
+              if (col > 12 ) // Make sure user dosn't pass input area
+                {
+                  col--;
+                }
+              break;
+            case 15: // + (move cursor right)
+              if (col < 15) // Make sure user dosn't pass input area
+                {
+                  col++;
+                }
+              break;
+            case 16: // 100+ (add decimal point)
+              if (menu == 1)
+                {
+                  switch (row)
+                    {
+                      case 0:
+                        lcdIn0[col - 12] = '.';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                      case 1:
+                        lcdIn1[col - 12] = '.';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                    }
+                }
+              else
+                {
+                  switch (row)
+                    {
+                      case 0:
+                        lcdIn2[col - 12] = '.';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                      case 1:
+                        lcdIn3[col - 12] = '.';
+                        if (col < 15)
+                          {
+                            col++;
+                          }
+                        break;
+                    }
+                }
+              break;
+            case 17: // CH-  (move cursor down)
+              if (row == 0) // Make sure user dosn't pass input area
+                {
+                  row++;
+                  col = 12;
+                }
+              break;
+            case 18: // CH+ (move cursor up)
+              if (row == 1) // Make sure user dosn't pass input area
+                {
+                  row--;
+                  col = 12;
+                }
+              break;            
+          }
+  }
+  
+void clearChar(char array[], short pos, short length)
+    {
+       for (short c = pos; c < length; c++)
+         {
+           if (c != length - 1) // if c isn't the last value in the array
+             {
+               array[c] = array[c+1]; // copy the value to the right of the array
+             }
+           else // c is the last value in the array
+             {
+               array[c] = ' '; // clear the value
+             }
+         }
+       
+    }
 
+String charToString (char array[], short length)
+  {
+    String str;
+    for (short c = 0; c < length; c++)
+      {
+        str = str + array[c];
+      }
+    return str;
+    
+  }
+
+void empty (char array[], short length)
+  {
+    for (int c = 0; c < length; c++)
+      {
+        array[c] = ' ';
+      }
+  }
+
+short charToShort (char array[], short length)
+  {
+    
+    bool error = false;
+    short num = 0;
+    short results = 0;
+    for (short c = 0; c < length; c++)
+      {
+        results = charToNum(array[c]);
+        if (results == -1 || results == 10) // If char is a digit or .
+          {
+            error - true;
+          }
+        else
+          {
+            num = num + (results * pow(10,(length - 1) - c)); // add the number to the sum
+          }
+      }
+    if (!error) // If there was no error
+      {
+        return num; // Return the number
+      }
+    else
+      {
+        return -1; // return error code
+      }
+  }
+  
+float charToFloat (char array[], short length)
+  {
+    
+    bool error = false;
+    bool decimal = false;
+    short decimalPos = 0;
+    float num = 0;
+    short results = 0;
+    for (short c = 0; c < length; c++)
+      {
+        results = charToNum(array[c]);
+        if (results == -1 || (results == 10 && decimal)) // If char is a digit or another . is recived
+          {
+            error - true;
+          }
+        else if (results == 10) // if we get a .
+          {
+            decimal = true;
+            decimalPos = c;
+          }
+        else if (decimal) // If we have recived a .
+          {
+            num = num + (results * pow(10,-1 *(c - decimalPos))); // add the number to the sum
+          }
+        else
+          {
+            num = num + (results * pow(10,(length - 1) - c)); // add the number to the sum
+          }
+      }
+    if (!error) // If there was no error
+      {
+        return num; // Return the number
+      }
+    else
+      {
+        return -1; // return error code
+      }
+  }
+
+short charToNum(char character)
+  // Converts character to digit or . 
+  // -1 indicates neither
+  // 10 indicates .
+  {
+    short num = -1; // Set num to -1 to indicate not a number
+    if ((character >= 48 && character <= 57) || character == 46) // If character is a digit or a .
+      {
+        if (character == 46)
+          {
+            num = 10;
+          }
+        else 
+          {
+            num = character - 48; // Convert ASCII to digit
+          }
+      }
+    return num;
+  }
+  
+bool checkParamaters()
+  {
+    bool params = true; // have all paramaters default
+    // temp values so the globals arn't affected
+    float distTar = charToFloat(lcdIn0,SIZE);
+    float distTrig = charToFloat(lcdIn1,SIZE);
+    short trigVal = charToShort(lcdIn2,SIZE);
+    short trimVal = charToShort(lcdIn3,SIZE); 
+ 
+    //short trigHigh = 1024; // Defualt value is high to prevent missfires
+    //short trim = 0; // used as an offset 
+    
+    //float distTarget = 0;   // Distance between end of muzzle to target in ft
+    //float distTrig1 = 0;    // Distance between muzzle and trig1 in ft   
+    
+    if(distTar != -1) // Check Dist Target
+      {
+        distTarget = distTar;
+      }
+    else
+      {
+        params = false;
+      }
+      
+    if(distTrig != -1) // Check Dist Trig 1
+      {
+        distTrig1 = distTrig;
+      }
+    else
+      {
+        params = false;
+      }
+      
+    if (trigVal != -1) // Check Trig Val
+      {
+        trigHigh = trigVal;
+      }
+    else
+      {
+        params = false;
+      }
+      
+    if (trimVal != 1) // Check Trim
+      {
+        trim = trimVal;
+      }
+    else
+      {
+        params = false;
+      }
+  }
