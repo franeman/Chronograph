@@ -101,7 +101,7 @@ void setup() {
   empty(lcdIn1,SIZE);
   empty(lcdIn2,SIZE);
   empty(lcdIn3,SIZE);
-  lcdIn3[0] = '0'; // Set initial value to 0
+  lcdIn3[3] = '0'; // Set initial value to 0
   
   Serial.begin(9600); // Open serial monitor (For debugging)
 }
@@ -142,7 +142,7 @@ void loop() {
       }
     // reset input cursor pos
     row = 0;
-    col = 12;
+    col = 15;
     
     while (menu == 1 && !fire) // Second page of menu, set distTarget and distTrig1
       {
@@ -162,7 +162,7 @@ void loop() {
       }
     // reset input cursor pos
     row = 0;
-    col = 12;
+    col = 15;
     
     while (menu == 2 && !fire) // Third page of menu, set trigger val
       {
@@ -413,18 +413,10 @@ void getLCDInput()
                   switch (row)
                     {
                       case 0:
-                        lcdIn0[col - 12] = '0';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn0, SIZE, col - 12, '0');
                         break;
                       case 1:
-                        lcdIn1[col - 12] = '0';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn1, SIZE, col - 12, '0');
                         break;
                     }
                 }
@@ -432,18 +424,10 @@ void getLCDInput()
                     switch (row)
                     {
                       case 0:
-                        lcdIn2[col - 12] = '0';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn2, SIZE, col - 12, '0');
                         break;
                       case 1:
-                        lcdIn3[col - 12] = '0';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn3, SIZE, col - 12, '0');
                         break;
                     }
                 
@@ -454,18 +438,10 @@ void getLCDInput()
                   switch (row)
                     {
                       case 0:
-                        lcdIn0[col - 12] = '1';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn0, SIZE, col - 12, '1');
                         break;
                       case 1:
-                        lcdIn1[col - 12] = '1';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn1, SIZE, col - 12, '1');
                         break;
                     }
                 }
@@ -474,18 +450,10 @@ void getLCDInput()
                   switch (row)
                     {
                       case 0:
-                        lcdIn2[col - 12] = '1';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn2, SIZE, col - 12, '1');
                         break;
                       case 1:
-                        lcdIn3[col - 12] = '1';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn3, SIZE, col - 12, '1');
                         break;
                     }
                 }
@@ -496,18 +464,10 @@ void getLCDInput()
                   switch (row)
                     {
                       case 0:
-                        lcdIn0[col - 12] = '2';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn0, SIZE, col - 12, '2');
                         break;
                       case 1:
-                        lcdIn1[col - 12] = '2';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn1, SIZE, col - 12, '2');
                         break;
                     }
                 }
@@ -516,18 +476,10 @@ void getLCDInput()
                   switch (row)
                     {
                       case 0:
-                        lcdIn2[col - 12] = '2';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn2, SIZE, col - 12, '2');
                         break;
                       case 1:
-                        lcdIn3[col - 12] = '2';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn3, SIZE, col - 12, '2');
                         break;
                     }
                 }
@@ -538,18 +490,10 @@ void getLCDInput()
                   switch (row)
                     {
                       case 0:
-                        lcdIn0[col - 12] = '3';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn0, SIZE, col - 12, '3');
                         break;
                       case 1:
-                        lcdIn1[col - 12] = '3';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn1, SIZE, col - 12, '3');
                         break;
                     }
                 }
@@ -558,18 +502,10 @@ void getLCDInput()
                   switch (row)
                     {
                       case 0:
-                        lcdIn2[col - 12] = '3';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn2, SIZE, col - 12, '3');
                         break;
                       case 1:
-                        lcdIn3[col - 12] = '3';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn3, SIZE, col - 12, '3');
                         break;
                     }
                 }
@@ -580,18 +516,10 @@ void getLCDInput()
                 switch (row)
                   {
                     case 0:
-                      lcdIn0[col - 12] = '4';
-                      if (col < 15)
-                        {
-                          col++;
-                        }
+                      insert(lcdIn0, SIZE, col - 12, '4');
                       break;
                     case 1:
-                      lcdIn1[col - 12] = '4';
-                      if (col < 15)
-                        {
-                          col++;
-                        }
+                      insert(lcdIn1, SIZE, col - 12, '4');
                       break;
                   }
               }
@@ -600,18 +528,10 @@ void getLCDInput()
                 switch (row)
                     {
                       case 0:
-                        lcdIn2[col - 12] = '4';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn2, SIZE, col - 12, '4');
                         break;
                       case 1:
-                        lcdIn3[col - 12] = '4';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn3, SIZE, col - 12, '4');
                         break;
                     }
               }
@@ -622,18 +542,10 @@ void getLCDInput()
                   switch (row)
                     {
                       case 0:
-                        lcdIn0[col - 12] = '5';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn0, SIZE, col - 12, '5');
                         break;
                       case 1:
-                        lcdIn1[col - 12] = '5';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn1, SIZE, col - 12, '5');
                         break;
                     }
                 }
@@ -642,18 +554,10 @@ void getLCDInput()
                   switch (row)
                     {
                       case 0:
-                        lcdIn2[col - 12] = '5';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn2, SIZE, col - 12, '5');
                         break;
                       case 1:
-                        lcdIn3[col - 12] = '5';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn3, SIZE, col - 12, '5');
                         break;
                     }
                 }
@@ -664,18 +568,10 @@ void getLCDInput()
                   switch (row)
                     {
                       case 0:
-                        lcdIn0[col - 12] = '6';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn0, SIZE, col - 12, '6');
                         break;
                       case 1:
-                        lcdIn1[col - 12] = '6';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn1, SIZE, col - 12, '6');
                         break;
                     }
                 }
@@ -684,18 +580,10 @@ void getLCDInput()
                   switch (row)
                     {
                       case 0:
-                        lcdIn2[col - 12] = '6';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn2, SIZE, col - 12, '6');
                         break;
                       case 1:
-                        lcdIn3[col - 12] = '6';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn3, SIZE, col - 12, '6');
                         break;
                     }
                 }
@@ -706,18 +594,10 @@ void getLCDInput()
                   switch (row)
                     {
                       case 0:
-                        lcdIn0[col - 12] = '7';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn0, SIZE, col - 12, '7');
                         break;
                       case 1:
-                        lcdIn1[col - 12] = '7';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn1, SIZE, col - 12, '7');
                         break;
                     }
                 }
@@ -726,18 +606,10 @@ void getLCDInput()
                   switch (row)
                     {
                       case 0:
-                        lcdIn2[col - 12] = '7';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn2, SIZE, col - 12, '7');
                         break;
                       case 1:
-                        lcdIn3[col - 12] = '7';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn3, SIZE, col - 12, '7');
                         break;
                     }
                 }
@@ -748,18 +620,10 @@ void getLCDInput()
                   switch (row)
                     {
                       case 0:
-                        lcdIn0[col - 12] = '8';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn0, SIZE, col - 12, '8');
                         break;
                       case 1:
-                        lcdIn1[col - 12] = '8';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn1, SIZE, col - 12, '8');
                         break;
                     }
                 }
@@ -768,18 +632,10 @@ void getLCDInput()
                   switch (row)
                     {
                       case 0:
-                        lcdIn2[col - 12] = '8';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn2, SIZE, col - 12, '8');
                         break;
                       case 1:
-                        lcdIn3[col - 12] = '8';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn3, SIZE, col - 12, '8');
                         break;
                     }
                 }
@@ -790,18 +646,10 @@ void getLCDInput()
                   switch (row)
                     {
                       case 0:
-                        lcdIn0[col - 12] = '9';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn0, SIZE, col - 12, '9');
                         break;
                       case 1:
-                        lcdIn1[col - 12] = '9';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn1, SIZE, col - 12, '9');
                         break;
                     }
                 }
@@ -810,18 +658,10 @@ void getLCDInput()
                   switch (row)
                     {
                       case 0:
-                        lcdIn2[col - 12] = '9';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn2, SIZE, col - 12, '9');
                         break;
                       case 1:
-                        lcdIn3[col - 12] = '9';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn3, SIZE, col - 12, '9');
                         break;
                     }
                 }
@@ -916,14 +756,14 @@ void getLCDInput()
               if (row == 0) // Make sure user dosn't pass input area
                 {
                   row++;
-                  col = 12;
+                  col = 15;
                 }
               break;
             case 18: // CH+ (move cursor up)
               if (row == 1) // Make sure user dosn't pass input area
                 {
                   row--;
-                  col = 12;
+                  col = 15;
                 }
               break;  
             case 19: // Play/Pause (enter fire mode)
@@ -941,13 +781,13 @@ void getLCDInput()
   
 void clearChar(char array[], short pos, short length)
     {
-       for (short c = pos; c < length; c++)
+       for (short c = pos; c >= 0; c--)
          {
-           if (c != length - 1) // if c isn't the last value in the array
+           if (c != 0) // if c isn't the first value in the array
              {
-               array[c] = array[c+1]; // copy the value to the right of the array
+               array[c] = array[c-1]; // copy the value to the left of the array
              }
-           else // c is the last value in the array
+           else // c is the first value in the array
              {
                array[c] = ' '; // clear the value
              }
@@ -977,14 +817,13 @@ void empty (char array[], short length)
 short charToShort (char array[], short length)
   {
     bool hasVal = false; // used to determine if we have a value
-    bool finished = false; // used to determine if we are at the end
     bool error = false;
     short num = 0;
     short results = 0;
     for (short c = 0; c < length; c++)
       {
         results = charToNum(array[c]);
-        if (results == -1 || results == 10 || (!hasVal && finished)) // If char is a not digit, is a . , or there is no value
+        if (results == -1 || results == 10) // If char is a not digit, is a .
           {
             Serial.print("results: ");
             Serial.println(results);
@@ -992,23 +831,23 @@ short charToShort (char array[], short length)
             Serial.print("hasVal: ");
             Serial.println(hasVal);
             
-            Serial.print("finished: ");
-            Serial.println(finished);
+            //Serial.print("finished: ");
+            //Serial.println(finished);
             
             error = true;
           }
-        else if (results == 11 && !finished)
+        else if (results == 11)
           {
-            finished = true;
+            // Do nothing
           }
-        else if (!finished)
+        else
           {
             num = num + (results * pow(10,(length - 1) - c)); // add the number to the sum
             hasVal = true; // We have at least one value
             Serial.println("hasVal = true");
           }
       }
-    if (!error) // If there was no error
+    if (!error && hasVal) // If there was no error
       {
         return num; // Return the number
       }
@@ -1021,7 +860,6 @@ short charToShort (char array[], short length)
 float charToFloat (char array[], short length)
   {
     bool hasVal = false; // used to determine if we have a value
-    bool finished = false; // used to determine if we are at the end
     bool error = false;
     bool decimal = false;
     short decimalPos = 0;
@@ -1031,7 +869,7 @@ float charToFloat (char array[], short length)
     for (short c = 0; c < length; c++)
       {
         results = charToNum(array[c]);
-        if ((results == -1) || (results == 10 && decimal) || (!hasVal && finished)) // If char is a not digit, another . is recived, or there is no value
+        if ((results == -1) || (results == 10 && decimal)) // If char is a not digit, another . is recived
           {
             Serial.print("results: ");
             Serial.println(results);
@@ -1039,35 +877,34 @@ float charToFloat (char array[], short length)
             Serial.print("hasVal: ");
             Serial.println(hasVal);
             
-            Serial.print("finished: ");
-            Serial.println(finished);
+            //Serial.print("finished: ");
+            //Serial.println(finished);
             
             error = true;
-            finished = true; // We recived an error and are done
           }
-        else if ((results == 10) && (!finished)) // if we get a . and are not done
+        else if ((results == 10)) // if we get a .
           {
             decimal = true;
             decimalPos = c;
           }
-        else if (decimal && !finished) // If we have recived a . and are not done
+        else if (decimal) // If we have recived a . and are not done
           {
             num = num + (results * pow(10,-1 *(c - decimalPos))); // add the number to the sum
             hasVal = true; // We have at least one digit
             Serial.println("hasVal = true");
           }
-        else if (results == 11 && !finished) // We recived a space
+        else if (results == 11) // We recived a space
           {
-            finished = true;
+            // Do nothing
           }
-        else if (!finished)
+        else
           {
             num = num + (results * pow(10,(length - 1) - c)); // add the number to the sum
             hasVal = true; // We have at least one digit 
             Serial.println("hasVal = true");
           }
       }
-    if (!error) // If there was no error
+    if (!error && hasVal) // If there was no error and we had a value
       {
         return num; // Return the number
       }
@@ -1146,7 +983,7 @@ bool checkParameters()
       
     if (trigVal != -1) // Check Trig Val
       {
-        trigHigh = trigVal;
+        trigHigh = trigVal + 1; // When read, trigVal is always 1 short for some reason. This is a temp fix until the cause is determined.
       }
     else
       {
@@ -1191,4 +1028,29 @@ void printError()
     delay(3000); // Wair for 3 seconds
     Serial.println("End error");
     return;
+  }
+  
+void insert(char array[], short length, short pos, char charToInsert)
+  {
+    if (array[0] == ' ') // If the first item in the array is empty (array is not full)
+      {
+        for (short c = 0; c < length; c++)
+          {
+            if (c != length - 1) // if we are not at the end of the array
+              {
+                array[c] = array[c+1]; // copy the character to the right
+              }
+            else // we are at the end of the array
+              {
+                array[c] = charToInsert; // insert the character
+              } 
+          }
+      }
+    else
+      {
+        lcd.clear();
+        lcd.home();
+        lcd.print("Value full!");
+        delay(2000);
+      }
   }
