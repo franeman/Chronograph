@@ -205,7 +205,8 @@ void loop() {
         lcd.clear();
         lcd.noCursor();
         lcd.home();
-        lcd.print("Shots Fired: " + shotsFired); // Show how many shots have been fired
+        lcd.print("Shots Fired:"); // Show how many shots have been fired
+        lcd.print(shotsFired);
         lcd.setCursor(0,1);
         lcd.print("Average Vel:"); // Show the average velocity
         lcd.print(average);
