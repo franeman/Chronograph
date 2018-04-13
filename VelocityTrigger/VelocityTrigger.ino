@@ -128,6 +128,17 @@ void loop() {
           {
             menu++;
           } 
+        else if (readRemote() == 19)
+          {
+            if (checkParameters())
+              {
+                fire = true;
+              }
+            else
+              {
+                printError();
+              }
+          }
       }
     // reset input cursor pos
     row = 0;
@@ -199,9 +210,20 @@ void loop() {
         lcd.print("Average Vel:"); // Show the average velocity
         lcd.print(average);
         
-        if(readRemote() == 11) // Prev
+        if (readRemote() == 11) // Prev
           {
             menu--;
+          }
+        else if (readRemote() == 19)
+          {
+            if (checkParameters())
+              {
+                fire = true;
+              }
+            else
+              {
+                printError();
+              }
           }
         delay(500);
       }
@@ -209,8 +231,15 @@ void loop() {
   // Fire mode
   timeBetTrig = 0;
   
+  lcd.clear();
+  lcd.home();
+  lcd.print("Fire mode on");
+  
+  Serial.print("trigHigh: ");
+  Serial.println(trigHigh);
   while(fire && analogRead(TRIG_1) > trigHigh) // Wait for projectile to pass by trig1
     {
+      
       if(readRemote() == 10) // If EQ (menu button) was pressed, go to options
         {
           fire = false;
@@ -220,6 +249,13 @@ void loop() {
   if (fire)
   {
   // Trig 1 was triggered
+  
+  lcd.clear();
+  lcd.home();
+  lcd.print("Trig 1");
+  lcd.setCursor(0,1);
+  lcd.print("Triggered");
+  
   while(analogRead(TRIG_2) > trigHigh) // Wait for projectile to pass trig2
     {
       delayMicroseconds(1); // Wait 1 microsecond
@@ -227,6 +263,12 @@ void loop() {
     }
     // Trig 2 was triggered
 
+    lcd.clear();
+    lcd.home();
+    lcd.print("Trig 2");
+    lcd.setCursor(0,1);
+    lcd.print("Triggered");
+  
     velocity = calcVelocity(DIST_TRIGGERS,timeBetTrig); // Calculate velocity of projectile
 
     timeToTarget = calcTTT(velocity, DIST_TRIGGERS, distTrig1, distTarget); // Calculate the time left till the projectile hits the target in microseconds
@@ -244,6 +286,20 @@ void loop() {
     aveArray[avePos] = velocity; // store the last shot's velocity for later use
     
     avePos++;
+    
+    if(readRemote() == 10) // If EQ (menu button) was pressed, go to options
+    // Placed again here so if trigVal was set too low, you can still get to the menu
+        {
+          fire = false;
+        }  
+        
+     lcd.clear();
+     lcd.home();
+     lcd.print("Velocity:");
+     lcd.setCursor(0,1);
+     lcd.print(velocity);
+     lcd.print(" ft/s");
+     delay(3000); // Wait 3 seconds
   }
 }
 
@@ -275,7 +331,7 @@ short readRemote()
     
     if (irrecv.decode(&results)) // if we recive an IR signal
     {
-      Serial.println(results.value, HEX);
+     Serial.println(results.value, HEX);
      switch (results.value) // Check what button was pressed
      {
        case 0xFF6897: // 0
@@ -869,7 +925,17 @@ void getLCDInput()
                   row--;
                   col = 12;
                 }
-              break;            
+              break;  
+            case 19: // Play/Pause (enter fire mode)
+              if (checkParameters()) // If we have all needed variables
+                {
+                  fire = true; // Set fire mode
+                }          
+              else // We don't have needed variables
+                {
+                  printError();
+                }
+                break;
           }
   }
   
@@ -910,20 +976,36 @@ void empty (char array[], short length)
 
 short charToShort (char array[], short length)
   {
-    
+    bool hasVal = false; // used to determine if we have a value
+    bool finished = false; // used to determine if we are at the end
     bool error = false;
     short num = 0;
     short results = 0;
     for (short c = 0; c < length; c++)
       {
         results = charToNum(array[c]);
-        if (results == -1 || results == 10) // If char is a digit or .
+        if (results == -1 || results == 10 || (!hasVal && finished)) // If char is a not digit, is a . , or there is no value
           {
-            error - true;
+            Serial.print("results: ");
+            Serial.println(results);
+            
+            Serial.print("hasVal: ");
+            Serial.println(hasVal);
+            
+            Serial.print("finished: ");
+            Serial.println(finished);
+            
+            error = true;
           }
-        else
+        else if (results == 11 && !finished)
+          {
+            finished = true;
+          }
+        else if (!finished)
           {
             num = num + (results * pow(10,(length - 1) - c)); // add the number to the sum
+            hasVal = true; // We have at least one value
+            Serial.println("hasVal = true");
           }
       }
     if (!error) // If there was no error
@@ -938,31 +1020,51 @@ short charToShort (char array[], short length)
   
 float charToFloat (char array[], short length)
   {
-    
+    bool hasVal = false; // used to determine if we have a value
+    bool finished = false; // used to determine if we are at the end
     bool error = false;
     bool decimal = false;
     short decimalPos = 0;
     float num = 0;
     short results = 0;
+    
     for (short c = 0; c < length; c++)
       {
         results = charToNum(array[c]);
-        if (results == -1 || (results == 10 && decimal)) // If char is a digit or another . is recived
+        if ((results == -1) || (results == 10 && decimal) || (!hasVal && finished)) // If char is a not digit, another . is recived, or there is no value
           {
-            error - true;
+            Serial.print("results: ");
+            Serial.println(results);
+            
+            Serial.print("hasVal: ");
+            Serial.println(hasVal);
+            
+            Serial.print("finished: ");
+            Serial.println(finished);
+            
+            error = true;
+            finished = true; // We recived an error and are done
           }
-        else if (results == 10) // if we get a .
+        else if ((results == 10) && (!finished)) // if we get a . and are not done
           {
             decimal = true;
             decimalPos = c;
           }
-        else if (decimal) // If we have recived a .
+        else if (decimal && !finished) // If we have recived a . and are not done
           {
             num = num + (results * pow(10,-1 *(c - decimalPos))); // add the number to the sum
+            hasVal = true; // We have at least one digit
+            Serial.println("hasVal = true");
           }
-        else
+        else if (results == 11 && !finished) // We recived a space
+          {
+            finished = true;
+          }
+        else if (!finished)
           {
             num = num + (results * pow(10,(length - 1) - c)); // add the number to the sum
+            hasVal = true; // We have at least one digit 
+            Serial.println("hasVal = true");
           }
       }
     if (!error) // If there was no error
@@ -979,24 +1081,38 @@ short charToNum(char character)
   // Converts character to digit or . 
   // -1 indicates neither
   // 10 indicates .
+  // 11 indicates ' '
   {
     short num = -1; // Set num to -1 to indicate not a number
-    if ((character >= 48 && character <= 57) || character == 46) // If character is a digit or a .
+    if ((character >= 48 && character <= 57) || character == 46 || character == ' ') // If character is a digit, a . , or ' '
       {
         if (character == 46)
           {
             num = 10;
+          }
+        else if (character == ' ')
+          {
+            num = 11;
           }
         else 
           {
             num = character - 48; // Convert ASCII to digit
           }
       }
+    else // character is not a digit or a .
+      {
+        num = -1;
+        Serial.print(character);
+        Serial.println(" is not a number, . , or ' '");
+      }
+    Serial.print("num: ");
+    Serial.println(num);
     return num;
   }
   
-bool checkParamaters()
+bool checkParameters()
   {
+    Serial.println("Start check");
     bool params = true; // have all paramaters default
     // temp values so the globals arn't affected
     float distTar = charToFloat(lcdIn0,SIZE);
@@ -1045,4 +1161,34 @@ bool checkParamaters()
       {
         params = false;
       }
+    Serial.println("End check");
+    
+    Serial.print("distTar: ");
+    Serial.println(distTar);
+    
+    Serial.print("distTrig: ");
+    Serial.println(distTrig);
+    
+    Serial.print("trigVal: ");
+    Serial.println(trigVal);
+    
+    Serial.print("trimVal: ");
+    Serial.println(trimVal);
+    
+    Serial.print("params = ");
+    Serial.println(params);
+    
+    return params;
+  }
+void printError()
+  {
+    Serial.println("Start error");
+    lcd.clear(); // Clear the lcd
+    lcd.noCursor();
+    lcd.home(); // Set cursor to home position
+    lcd.print("Error in values"); // Print error message
+    Serial.println("Start delay");
+    delay(3000); // Wair for 3 seconds
+    Serial.println("End error");
+    return;
   }
