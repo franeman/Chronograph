@@ -24,7 +24,7 @@ A 220 ohm resistor is used to power the backlight of the display, usually on pin
 #define TRIG_1 A0
 #define TRIG_2 A1
 // Outputs
-#define CAM 10
+#define CAM 13
 
 
 // Constants
@@ -231,7 +231,8 @@ void loop() {
   }
   // Fire mode
   timeBetTrig = 0;
-  
+  unsigned long time1 = 0;
+  unsigned long time2 = 0;
   lcd.clear();
   lcd.home();
   lcd.print("Fire mode on");
@@ -250,6 +251,7 @@ void loop() {
   if (fire)
   {
   // Trig 1 was triggered
+  time1 = micros(); // Record the time trig1 was triggered
   
   lcd.clear();
   lcd.home();
@@ -259,11 +261,15 @@ void loop() {
   
   while(analogRead(TRIG_2) > trigHigh) // Wait for projectile to pass trig2
     {
-      delayMicroseconds(1); // Wait 1 microsecond
-      timeBetTrig++; // 1 microsecond passed
+      // Do nothing while waiting
     }
     // Trig 2 was triggered
+    time2 = micros(); // Record the time that trig 2 was triggered
+    timeBetTrig = time2 - time1; // Take the difference between the triggers 
 
+    Serial.print("timeBetTrig(micro seconds): ");
+    Serial.println(timeBetTrig);
+    
     lcd.clear();
     lcd.home();
     lcd.print("Trig 2");
@@ -273,9 +279,17 @@ void loop() {
     velocity = calcVelocity(DIST_TRIGGERS,timeBetTrig); // Calculate velocity of projectile
 
     timeToTarget = calcTTT(velocity, DIST_TRIGGERS, distTrig1, distTarget); // Calculate the time left till the projectile hits the target in microseconds
+    Serial.print("timeToTarget (milliSeconds): ");
+    Serial.println(timeToTarget);
+    Serial.print("current time: ");
+    Serial.println(millis());
   
-    delayMicroseconds(timeToTarget); // Wait till the projectile hits the target
-
+    delay(timeToTarget); // Wait till the projectile hits the target
+    
+    Serial.print("Delayed time: ");
+    Serial.print(millis());
+    
+    delayMicroseconds(trim);
     shoot(); // Take the picture
     
     shotsFired++;
@@ -307,20 +321,27 @@ void loop() {
 float calcVelocity(float distance,unsigned long timeMicro) // takes a distance in feet and the time in microseconds to calculate the velocity in ft/sec
   {
     float timeSec = (float)timeMicro * (float)pow(10,-6);
+    Serial.print("timeSec: ");
+    Serial.println(timeSec);
     float velocity = distance / timeSec;
-    return velocity;
+    Serial.print("distance: ");
+    Serial.println(distance);
+    Serial.print("velocity: ");
+    Serial.println(velocity);  
+    return velocity;  
   }
 
 unsigned long calcTTT(float velocity, float dist_triggers, float distTrig1, float distTarget) // Takes velocity in ft/sec, distance between triggers in ft, and distance between the muzzle to the target in ft,
-                                                                           // and calculates the time left till impact in microseconds
+                                                                           // and calculates the time left till impact in milli
   {
     float distLeft = distTarget - (dist_triggers + distTrig1);
     float timeSec =  distLeft / velocity;
-    unsigned long timeToTarget = (unsigned long)timeSec * (unsigned long)pow(10,6);
+    unsigned long timeToTarget = (unsigned long)timeSec * (unsigned long)pow(10,3);
     return timeToTarget;
   }
 void shoot()
   {
+    
     digitalWrite(CAM, HIGH); // fire flash
     delay(50);
     digitalWrite(CAM, LOW);
@@ -394,6 +415,9 @@ short readRemote()
          break;
        case 0xFFC23D: // Play/Pause
        input = 19;
+         break;
+       case 0xFFB04F:
+       input = 20;
          break;
      }
      
@@ -699,6 +723,7 @@ void getLCDInput()
                     }
                 }
               break;
+            /*
             case 14: // - (move cursor left)
               if (col > 12 ) // Make sure user dosn't pass input area
                 {
@@ -711,24 +736,17 @@ void getLCDInput()
                   col++;
                 }
               break;
+            */ // Removed changing cursor position
             case 16: // 100+ (add decimal point)
               if (menu == 1)
                 {
                   switch (row)
                     {
                       case 0:
-                        lcdIn0[col - 12] = '.';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn0, SIZE, col - 12, '.');
                         break;
                       case 1:
-                        lcdIn1[col - 12] = '.';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn1, SIZE, col - 12, '.');
                         break;
                     }
                 }
@@ -737,18 +755,10 @@ void getLCDInput()
                   switch (row)
                     {
                       case 0:
-                        lcdIn2[col - 12] = '.';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn2, SIZE, col - 12, '.');
                         break;
                       case 1:
-                        lcdIn3[col - 12] = '.';
-                        if (col < 15)
-                          {
-                            col++;
-                          }
+                        insert(lcdIn3, SIZE, col - 12, '.');
                         break;
                     }
                 }
@@ -777,6 +787,11 @@ void getLCDInput()
                   printError();
                 }
                 break;
+            case 20:
+              if (menu == 2 && row == 1)
+                {
+                  insert(lcdIn3, SIZE, col - 12, '-');
+                }
           }
   }
   
