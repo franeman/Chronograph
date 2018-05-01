@@ -253,68 +253,75 @@ void loop() {
   // Trig 1 was triggered
   time1 = micros(); // Record the time trig1 was triggered
   
-  lcd.clear();
-  lcd.home();
-  lcd.print("Trig 1");
-  lcd.setCursor(0,1);
-  lcd.print("Triggered");
+  //lcd.clear();
+  //lcd.home();
+  //lcd.print("Trig 1");
+  //lcd.setCursor(0,1);
+  //lcd.print("Triggered");
   
   while(analogRead(TRIG_2) > trigHigh) // Wait for projectile to pass trig2
     {
       // Do nothing while waiting
     }
-    // Trig 2 was triggered
-    time2 = micros(); // Record the time that trig 2 was triggered
-    timeBetTrig = time2 - time1; // Take the difference between the triggers 
+  // Trig 2 was triggered
+  time2 = micros(); // Record the time that trig 2 was triggered
+  timeBetTrig = time2 - time1; // Take the difference between the triggers 
 
-    Serial.print("timeBetTrig(micro seconds): ");
-    Serial.println(timeBetTrig);
-    
-    lcd.clear();
-    lcd.home();
-    lcd.print("Trig 2");
-    lcd.setCursor(0,1);
-    lcd.print("Triggered");
+  //Serial.print("timeBetTrig(micro seconds): ");
+  //Serial.println(timeBetTrig);
   
-    velocity = calcVelocity(DIST_TRIGGERS,timeBetTrig); // Calculate velocity of projectile
+  //lcd.clear();
+  //lcd.home();
+  //lcd.print("Trig 2");
+  //lcd.setCursor(0,1);
+  //lcd.print("Triggered");
 
-    timeToTarget = calcTTT(velocity, DIST_TRIGGERS, distTrig1, distTarget); // Calculate the time left till the projectile hits the target in microseconds
-    Serial.print("timeToTarget (milliSeconds): ");
-    Serial.println(timeToTarget);
-    Serial.print("current time: ");
-    Serial.println(millis());
+  velocity = calcVelocity(DIST_TRIGGERS,timeBetTrig); // Calculate velocity of projectile
+
+  timeToTarget = calcTTT(velocity, DIST_TRIGGERS, distTrig1, distTarget); // Calculate the time left till the projectile hits the target in microseconds
+  //Serial.print("timeToTarget (microSeconds): ");
+  //Serial.println(timeToTarget);
+  //Serial.print("trim: ");
+  //Serial.println(trim);
+  unsigned long impactTime = micros() + timeToTarget + trim; // Set the impact time
+  //unsigned long endTime = 0;
+  //Serial.print("impactTime: ");
+  //Serial.println(impactTime);
+  while (micros() < impactTime) // Wait until impact time
+    {
+      // Wait for impact
+    }
+  //endTime = micros();
+  //Serial.print("time: ");
+  //Serial.println(endTime);
+  //Serial.print("Difference = ");
+  //Serial.println(endTime - impactTime);
   
-    delay(timeToTarget); // Wait till the projectile hits the target
-    
-    Serial.print("Delayed time: ");
-    Serial.print(millis());
-    
-    delayMicroseconds(trim);
-    shoot(); // Take the picture
-    
-    shotsFired++;
-    
-    if (avePos == AVE_SIZE - 1) // Check if we met the size limit for the average array
+  shoot(); // Take the picture
+  
+  shotsFired++;
+  
+  if (avePos == AVE_SIZE - 1) // Check if we met the size limit for the average array
+    {
+      avePos = 0;  // If we did, set the position to the begging
+    }
+  aveArray[avePos] = velocity; // store the last shot's velocity for later use
+  
+  avePos++;
+  
+  if(readRemote() == 10) // If EQ (menu button) was pressed, go to options
+  // Placed again here so if trigVal was set too low, you can still get to the menu
       {
-        avePos = 0;  // If we did, set the position to the begging
-      }
-    aveArray[avePos] = velocity; // store the last shot's velocity for later use
-    
-    avePos++;
-    
-    if(readRemote() == 10) // If EQ (menu button) was pressed, go to options
-    // Placed again here so if trigVal was set too low, you can still get to the menu
-        {
-          fire = false;
-        }  
-        
-     lcd.clear();
-     lcd.home();
-     lcd.print("Velocity:");
-     lcd.setCursor(0,1);
-     lcd.print(velocity);
-     lcd.print(" ft/s");
-     delay(3000); // Wait 3 seconds
+        fire = false;
+      }  
+      
+   lcd.clear();
+   lcd.home();
+   lcd.print("Velocity:");
+   lcd.setCursor(0,1);
+   lcd.print(velocity);
+   lcd.print(" ft/s");
+   delay(3000); // Wait 3 seconds
   }
 }
 
@@ -332,18 +339,18 @@ float calcVelocity(float distance,unsigned long timeMicro) // takes a distance i
   }
 
 unsigned long calcTTT(float velocity, float dist_triggers, float distTrig1, float distTarget) // Takes velocity in ft/sec, distance between triggers in ft, and distance between the muzzle to the target in ft,
-                                                                           // and calculates the time left till impact in milli
+                                                                           // and calculates the time left till impact in microseconds
   {
     float distLeft = distTarget - (dist_triggers + distTrig1);
     float timeSec =  distLeft / velocity;
-    unsigned long timeToTarget = (unsigned long)timeSec * (unsigned long)pow(10,3);
+    unsigned long timeToTarget = (unsigned long)timeSec * (unsigned long)pow(10,6);
     return timeToTarget;
   }
 void shoot()
   {
     
     digitalWrite(CAM, HIGH); // fire flash
-    delay(50);
+    delay(500);
     digitalWrite(CAM, LOW);
   }
   
@@ -832,6 +839,7 @@ void empty (char array[], short length)
 
 short charToShort (char array[], short length)
   {
+    bool negative = false;
     bool hasVal = false; // used to determine if we have a value
     bool error = false;
     short num = 0;
@@ -839,7 +847,7 @@ short charToShort (char array[], short length)
     for (short c = 0; c < length; c++)
       {
         results = charToNum(array[c]);
-        if (results == -1 || results == 10) // If char is a not digit, is a .
+        if (results == -1 || results == 10) // If char is a not digit or is a .
           {
             Serial.print("results: ");
             Serial.println(results);
@@ -852,9 +860,13 @@ short charToShort (char array[], short length)
             
             error = true;
           }
-        else if (results == 11)
+        else if (results == 11) // If it is a space
           {
             // Do nothing
+          }
+        else if (results == 20) // If it is a -
+          {
+            negative = true;
           }
         else
           {
@@ -865,6 +877,10 @@ short charToShort (char array[], short length)
       }
     if (!error && hasVal) // If there was no error
       {
+        if (negative)
+          {
+            num = num * -1;
+          }
         return num; // Return the number
       }
     else
@@ -915,7 +931,14 @@ float charToFloat (char array[], short length)
           }
         else
           {
-            num = num + (results * pow(10,(length - 1) - c)); // add the number to the sum
+            if (c !=0)
+            {
+              num = num * 10 + results; // add the number to the sum
+            }
+            else
+            {
+              num = num + results;
+            }
             hasVal = true; // We have at least one digit 
             Serial.println("hasVal = true");
           }
@@ -937,7 +960,7 @@ short charToNum(char character)
   // 11 indicates ' '
   {
     short num = -1; // Set num to -1 to indicate not a number
-    if ((character >= 48 && character <= 57) || character == 46 || character == ' ') // If character is a digit, a . , or ' '
+    if ((character >= 48 && character <= 57) || character == 46 || character == ' ' || character == '-') // If character is a digit, a . , or ' '
       {
         if (character == 46)
           {
@@ -946,6 +969,10 @@ short charToNum(char character)
         else if (character == ' ')
           {
             num = 11;
+          }
+        else if (character == '-')
+          {
+            num = 20;
           }
         else 
           {
@@ -1006,7 +1033,7 @@ bool checkParameters()
         params = false;
       }
       
-    if (trimVal != 1) // Check Trim
+    if (trimVal != -1) // Check Trim
       {
         trim = trimVal;
       }
@@ -1069,4 +1096,9 @@ void insert(char array[], short length, short pos, char charToInsert)
         lcd.print("Value full!");
         delay(2000);
       }
+  }
+unsigned long microToMilli(unsigned long num)
+  {
+    unsigned long result = num * pow(10,-3);
+    return result;
   }
