@@ -1,8 +1,15 @@
 /*
+ * Ethan Grey
  * This program will calculate the velocity of a bullet using 2 IR beams as triggers.
  * It will then trigger a camera when the projectile will impact the target
  * The program assumes constance zero acceleration and neglects air resistance
  */
+
+/////////// Note: Parts of code used from other sources
+// Portions of code used from EEEnthusiast / MPU-6050 Implementation: https://github.com/VRomanov89/EEEnthusiast/blob/master/MPU-6050%20Implementation/MPU6050_Implementation/MPU6050_Implementation.ino
+// Video explaining the code: https://www.youtube.com/watch?v=M9lZ5Qy5S2s&t=274s
+// Was used to open I2C connection with accelerometer, set the settings, and retrive and convert data
+
 
 /*
 LCD Circuit:
@@ -15,8 +22,12 @@ LCD D7 pin to digital pin 2
 Additionally, wire a 10k pot to +5V and GND, with it's wiper (output) to LCD screens VO pin (pin3). 
 A 220 ohm resistor is used to power the backlight of the display, usually on pin 15 and 16 of the LCD connector
 */
+
+// I2C uses A5 as SCL and A4 as SDA on arduino UNO
+
 #include <LiquidCrystal.h>
 #include <IRremote.h>
+#include <Wire.h>
 
 // Pin numbers
 // Inputs
@@ -44,7 +55,7 @@ float velocity = 0;     // Velocity of the bullet
 unsigned long timeBetTrig = 0; // Time between triggers in microseconds
 unsigned long timeToTarget = 0; // Time from trig2 till the projectile hits the target
 
-#define AVE_SIZE 10
+#define AVE_SIZE 10 // Determines how many shots to save for calculaing the average velocity
 float aveArray[AVE_SIZE];
 float average = 0.0f;
 short shotsFired = 0;
@@ -64,6 +75,10 @@ short remIn = -1;
 #define d7 2
 
 LiquidCrystal lcd(rs,en,d4,d5,d6,d7); // create LiquidCrystal variable using specified pins
+
+// Accelerometer data
+long accelX, accelY, accelZ; // Raw data from accelerometer
+float gForceX, gForceY, gForceZ, rad; // Data converted to g-force and angle in radians
 
 // Character arrays for storing LCD input
 #define SIZE 4
@@ -104,6 +119,8 @@ void setup() {
   lcdIn3[3] = '0'; // Set initial value to 0
   
   Serial.begin(9600); // Open serial monitor (For debugging)
+  Wire.begin();
+  setupMPU(); // Sets the desired settings for power managment and accelerometer, gyroscope was commented out as it is not needed
 }
 
 void loop() {
@@ -241,11 +258,14 @@ void loop() {
   Serial.println(trigHigh);
   while(fire && analogRead(TRIG_1) > trigHigh) // Wait for projectile to pass by trig1
     {
-      
       if(readRemote() == 10) // If EQ (menu button) was pressed, go to options
         {
           fire = false;
         }  
+      else
+        {
+          recordAccelRegisters(); // Read accelerometer to get the angle of the shot
+        }
     }
   
   if (fire)
@@ -277,6 +297,7 @@ void loop() {
   //lcd.print("Triggered");
 
   velocity = calcVelocity(DIST_TRIGGERS,timeBetTrig); // Calculate velocity of projectile
+  velocity = velocity * cos(rad); // Convert velocity to its horizontal component
 
   timeToTarget = calcTTT(velocity, DIST_TRIGGERS, distTrig1, distTarget); // Calculate the time left till the projectile hits the target in microseconds
   //Serial.print("timeToTarget (microSeconds): ");
@@ -1102,3 +1123,53 @@ unsigned long microToMilli(unsigned long num)
     unsigned long result = num * pow(10,-3);
     return result;
   }
+
+void setupMPU() // taken from EEEnthusiast  
+{
+  //// Set power managment settings
+  // Start transmission with MPU-6050
+  Wire.beginTransmission(0b1101000); //This is the I2C address of the MPU (b1101000/b1101001 for AC0 low/high datasheet sec. 9.2)
+  // Select register to write to
+  Wire.write(0x6B); //Accessing the register 6B - Power Management (Sec. 4.28)
+  // Write the data to the register
+  Wire.write(0b00000000); //Setting SLEEP register to 0. (Required; see Note on p. 9)
+  // Indicate the end of data transmission
+  Wire.endTransmission(); 
+
+  /*
+  //// Setup gyroscpe
+  Wire.beginTransmission(0b1101000); //I2C address of the MPU
+  Wire.write(0x1B); //Accessing the register 1B - Gyroscope Configuration (Sec. 4.4) 
+  Wire.write(0x00000000); //Setting the gyro to full scale +/- 250deg./s 
+  Wire.endTransmission(); 
+  */
+  
+  //// Setup accelerometer
+  Wire.beginTransmission(0b1101000); //I2C address of the MPU
+  Wire.write(0x1C); //Accessing the register 1C - Acccelerometer Configuration (Sec. 4.5) 
+  Wire.write(0b00000000); //Setting the accel to +/- 2g
+  Wire.endTransmission(); 
+}
+
+void recordAccelRegisters() // Gets the sensor value for all 3 axis, taken from EEEnthusiast
+{
+  Wire.beginTransmission(0b1101000); //I2C address of the MPU
+  Wire.write(0x3B); //Starting register for Accel Readings
+  Wire.endTransmission();
+  Wire.requestFrom(0b1101000,6); //Request Accel Registers (3B - 40)
+  while(Wire.available() < 6);
+  accelX = Wire.read()<<8|Wire.read(); //Store first two bytes into accelX
+  accelY = Wire.read()<<8|Wire.read(); //Store middle two bytes into accelY
+  accelZ = Wire.read()<<8|Wire.read(); //Store last two bytes into accelZ
+  processAccelData();
+}
+
+void processAccelData() // Converts sensor reading into g-force, taken from EEEnthusiast
+{
+  gForceX = accelX / 16384.0;
+  gForceY = accelY / 16384.0; 
+  gForceZ = accelZ / 16384.0;
+
+  rad = atan(gForceY/gForceX);
+}
+
