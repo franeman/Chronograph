@@ -77,6 +77,7 @@ short remIn = -1;
 LiquidCrystal lcd(rs,en,d4,d5,d6,d7); // create LiquidCrystal variable using specified pins
 
 // Accelerometer data
+// Note: Works when pins are pointing to the ground
 long accelX, accelY, accelZ; // Raw data from accelerometer
 float gForceX, gForceY, gForceZ, rad; // Data converted to g-force and angle in radians
 
