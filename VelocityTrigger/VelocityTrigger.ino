@@ -257,6 +257,8 @@ void loop() {
   
   Serial.print("trigHigh: ");
   Serial.println(trigHigh);
+  
+  RESTART:
   while(fire && analogRead(TRIG_1) > trigHigh) // Wait for projectile to pass by trig1
     {
       if(readRemote() == 10) // If EQ (menu button) was pressed, go to options
@@ -298,6 +300,10 @@ void loop() {
   //lcd.print("Triggered");
 
   velocity = calcVelocity(DIST_TRIGGERS,timeBetTrig); // Calculate velocity of projectile
+  if (velocity < 1)
+    {
+      goto RESTART;
+    }
   velocity = velocity * cos(rad); // Convert velocity to its horizontal component
 
   timeToTarget = calcTTT(velocity, DIST_TRIGGERS, distTrig1, distTarget); // Calculate the time left till the projectile hits the target in microseconds
