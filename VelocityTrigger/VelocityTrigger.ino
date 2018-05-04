@@ -49,7 +49,7 @@ short trim = 0; // used as an offset
 
 float distTarget = 0;   // Distance between end of muzzle to target in ft
 float distTrig1 = 0;    // Distance between muzzle and trig1 in ft
-
+// Muzzle is about 0.1541667 ft from sensor 1 if flush with last rest
 float velocity = 0;     // Velocity of the bullet 
 
 unsigned long timeBetTrig = 0; // Time between triggers in microseconds
@@ -1133,7 +1133,7 @@ void setupMPU() // taken from EEEnthusiast
   // Select register to write to
   Wire.write(0x6B); //Accessing the register 6B - Power Management (Sec. 4.28)
   // Write the data to the register
-  Wire.write(0b00000000); //Setting SLEEP register to 0. (Required; see Note on p. 9)
+  Wire.write((byte)0b00000000); //Setting SLEEP register to 0. (Required; see Note on p. 9) // Code will not compile without (byte)
   // Indicate the end of data transmission
   Wire.endTransmission(); 
 
@@ -1148,7 +1148,7 @@ void setupMPU() // taken from EEEnthusiast
   //// Setup accelerometer
   Wire.beginTransmission(0b1101000); //I2C address of the MPU
   Wire.write(0x1C); //Accessing the register 1C - Acccelerometer Configuration (Sec. 4.5) 
-  Wire.write(0b00000000); //Setting the accel to +/- 2g
+  Wire.write((byte)0b00000000); //Setting the accel to +/- 2g // Code will not compile without (byte)
   Wire.endTransmission(); 
 }
 
