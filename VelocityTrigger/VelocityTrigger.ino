@@ -24,10 +24,11 @@ A 220 ohm resistor is used to power the backlight of the display, usually on pin
 */
 
 // I2C uses A5 as SCL and A4 as SDA on arduino UNO
+// Accelerometer wiring: Blk - grnd yel-5V wht- SCL blu- SDA
 
-#include <LiquidCrystal.h>
-#include <IRremote.h>
-#include <Wire.h>
+#include <LiquidCrystal.h> // Used to interface with LCD
+#include <IRremote.h> // Used to read IR remote signal
+#include <Wire.h> // Used for I2C communication with accelerometer
 
 // Pin numbers
 // Inputs
@@ -1179,4 +1180,3 @@ void processAccelData() // Converts sensor reading into g-force, taken from EEEn
 
   rad = atan(gForceY/gForceX);
 }
-
